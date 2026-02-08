@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Identificador de Música - ACRCloud</title>
+    <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0a0a0a;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-top: 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #00ffff, #00ccff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        .subtitle {
+            color: #aaa;
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .upload-section, .recording-section {
+            background: rgba(30, 30, 30, 0.8);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid #222;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            color: #00ffff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .drop-area {
+            border: 3px dashed #444;
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(20, 20, 20, 0.5);
+        }
+
+        .drop-area:hover, .drop-area.drag-over {
+            border-color: #00ffff;
+            background: rgba(0, 255, 255, 0.05);
+        }
+
+        .drop-area i {
+            font-size: 3rem;
+            color: #666;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .drop-area.active {
+            border-color: #00ffff;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn-record {
+            background: linear-gradient(135deg, #00c6ff, #0072ff);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 15px;
+        }
+
+        .btn-record:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 7px 15px rgba(0, 194, 255, 0.4);
+        }
+
+        .btn-record:active {
+            transform: translateY(0);
+        }
+
+        .btn-record.recording {
+            animation: pulse 1.5s infinite;
+            background: linear-gradient(135deg, #ff416c, #ff4b2b);
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 75, 43, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(255, 75, 43, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 75, 43, 0); }
+        }
+
+        .wave-container {
+            height: 100px;
+            margin: 20px 0;
+            background: rgba(10, 10, 10, 0.5);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .result-card {
+            background: rgba(30, 30, 30, 0.9);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid #222;
+            display: none;
+        }
+
+        .result-header {
+            display: flex;
+            gap: 25px;
+            margin-bottom: 25px;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            .result-header {
+                flex-direction: column;
+            }
+        }
+
+        .album-art {
+            width: 180px;
+            height: 180px;
+            border-radius: 10px;
+            object-fit: cover;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+        }
+
+        .track-info {
+            flex: 1;
+        }
+
+        .track-title {
+            font-size: 2rem;
+            color: #00ffff;
+            margin-bottom: 10px;
+        }
+
+        .track-artist {
+            font-size: 1.4rem;
+            color: #ddd;
+            margin-bottom: 15px;
+        }
+
+        .track-year {
+            color: #aaa;
+            font-size: 1.1rem;
+        }
+
+        .btn-youtube {
+            background: linear-gradient(135deg, #ff0000, #cc0000);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-youtube:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 7px 15px rgba(255, 0, 0, 0.4);
+        }
+
+        .status-message {
+            text-align: center;
+            padding: 20px;
+            color: #aaa;
+            font-style: italic;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #00ffff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Identificador de Música</h1>
+            <p class="subtitle">Reconoce canciones con ACRCloud API</p>
+        </header>
+
+        <div class="main-content">
+            <div class="upload-section">
+                <h2 class="section-title">
+                    <span>📁</span> Subir Archivo
+                </h2>
+                <div class="drop-area" id="dropArea">
+                    <span>📁</span>
+                    <p>Arrastra y suelta archivos de audio/video aquí</p>
+                    <p class="small">O haz clic para seleccionar un archivo</p>
+                    <input type="file" id="fileInput" class="file-input" accept="audio/*,video/*">
+                </div>
+                <div class="wave-container">
+                    <div id="waveform-upload"></div>
+                </div>
+            </div>
+
+            <div class="recording-section">
+                <h2 class="section-title">
+                    <span>🎤</span> Grabar Audio
+                </h2>
+                <button class="btn-record" id="recordButton">
+                    <span>🎤</span> Escuchar Ahora (5 seg)
+                </button>
+                <div class="wave-container">
+                    <div id="waveform-record"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="result-card" id="resultCard">
+            <div class="result-header">
+                <img id="albumArt" class="album-art" src="" alt="Carátula del álbum">
+                <div class="track-info">
+                    <h2 id="trackTitle" class="track-title">Título de la canción</h2>
+                    <p id="trackArtist" class="track-artist">Artista</p>
+                    <p id="trackYear" class="track-year">Año: 2023</p>
+                    <br>
+                    <button class="btn-youtube" id="youtubeButton">
+                        <span>▶️</span> Ver en YouTube
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURACIÓN DE ACRCLOUD (¡EDITAR AQUÍ!)
+        // ==========================================
+        const ACR_HOST = "identify-us-west-2.acrcloud.com"; // Ej: identify-eu-west-1.acrcloud.com
+        const ACR_ACCESS_KEY = "23eb3ccade60c1048e5352d9ed7109d8";
+        const ACR_ACCESS_SECRET = "rMw59VJeG6IWOzogOxICnWCySH5Tr8n7X7tZZXVD";
+        // ==========================================
+
+        // Variables globales
+        let audioContext = null;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let wavesurferUpload = null;
+        let wavesurferRecord = null;
+
+        // Inicializar Wavesurfer
+        function initWavesurfer() {
+            wavesurferUpload = WaveSurfer.create({
+                container: '#waveform-upload',
+                waveColor: '#00ffff',
+                progressColor: '#0077ff',
+                barWidth: 3,
+                barRadius: 3,
+                cursorWidth: 2,
+                height: 80,
+                responsive: true
+            });
+
+            wavesurferRecord = WaveSurfer.create({
+                container: '#waveform-record',
+                waveColor: '#00ffff',
+                progressColor: '#0077ff',
+                barWidth: 3,
+                barRadius: 3,
+                cursorWidth: 2,
+                height: 80,
+                responsive: true
+            });
+        }
+
+        // Inicializar la aplicación
+        document.addEventListener('DOMContentLoaded', () => {
+            initWavesurfer();
+            setupEventListeners();
+        });
+
+        // Configurar listeners de eventos
+        function setupEventListeners() {
+            const dropArea = document.getElementById('dropArea');
+            const fileInput = document.getElementById('fileInput');
+            const recordButton = document.getElementById('recordButton');
+            const youtubeButton = document.getElementById('youtubeButton');
+
+            // Drag & Drop events
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight() {
+                dropArea.classList.add('drag-over');
+            }
+
+            function unhighlight() {
+                dropArea.classList.remove('drag-over');
+            }
+
+            dropArea.addEventListener('drop', handleDrop, false);
+
+            // Click en el área de drop para abrir selector de archivos
+            dropArea.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            // Selector de archivos
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // Botón de grabación
+            recordButton.addEventListener('click', toggleRecording);
+
+            // Botón de YouTube
+            youtubeButton.addEventListener('click', openYouTube);
+        }
+
+        // Manejar archivos soltados
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length) {
+                processFile(files[0]);
+            }
+        }
+
+        // Manejar selección de archivo
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length) {
+                processFile(files[0]);
+            }
+        }
+
+        // Procesar archivo de audio/video
+        async function processFile(file) {
+            try {
+                showStatus('Procesando archivo...', 'upload');
+                
+                // Crear objeto URL para el archivo
+                const audioUrl = URL.createObjectURL(file);
+                
+                // Cargar y reproducir en Wavesurfer
+                await wavesurferUpload.load(audioUrl);
+                
+                // Decodificar audio con Web Audio API
+                const arrayBuffer = await file.arrayBuffer();
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                
+                // Extraer 5 segundos del medio del archivo
+                const fiveSecondsBuffer = extractFiveSeconds(audioBuffer);
+                
+                // Convertir a mono si es estéreo
+                const monoBuffer = convertToMono(fiveSecondsBuffer);
+                
+                // Convertir a ArrayBuffer con formato adecuado (16-bit PCM)
+                const pcmData = convertFloat32ToInt16(monoBuffer.getChannelData(0));
+                
+                // Identificar canción
+                const result = await identifyMusic(pcmData.buffer);
+                displayResult(result);
+                
+                // Liberar recursos
+                URL.revokeObjectURL(audioUrl);
+            } catch (error) {
+                console.error('Error procesando archivo:', error);
+                showStatus('Error procesando archivo', 'upload');
+            }
+        }
+
+        // Extraer 5 segundos del medio del buffer
+        function extractFiveSeconds(audioBuffer) {
+            const sampleRate = audioBuffer.sampleRate;
+            const fiveSeconds = 5 * sampleRate;
+            
+            // Tomar desde el medio del archivo
+            const startSample = Math.max(0, Math.floor((audioBuffer.length - fiveSeconds) / 2));
+            const endSample = Math.min(audioBuffer.length, startSample + fiveSeconds);
+            
+            const newBuffer = new AudioContext().createBuffer(
+                audioBuffer.numberOfChannels,
+                endSample - startSample,
+                sampleRate
+            );
+            
+            for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+                const originalData = audioBuffer.getChannelData(channel);
+                const newData = newBuffer.getChannelData(channel);
+                newData.set(originalData.subarray(startSample, endSample));
+            }
+            
+            return newBuffer;
+        }
+
+        // Convertir a mono
+        function convertToMono(audioBuffer) {
+            const offlineCtx = new OfflineAudioContext(1, audioBuffer.length, audioBuffer.sampleRate);
+            const source = offlineCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            
+            const merger = offlineCtx.createChannelMerger(1);
+            source.connect(merger);
+            merger.connect(offlineCtx.destination);
+            
+            source.start();
+            return offlineCtx.startRendering().then(renderedBuffer => renderedBuffer);
+        }
+
+        // Convertir Float32 a Int16
+        function convertFloat32ToInt16(buffer) {
+            const length = buffer.length;
+            const result = new Int16Array(length);
+            for (let i = 0; i < length; i++) {
+                result[i] = Math.max(-1, Math.min(1, buffer[i])) * 0x7FFF;
+            }
+            return result;
+        }
+
+        // Alternar grabación
+        async function toggleRecording() {
+            const button = document.getElementById('recordButton');
+            
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+                await startRecording();
+                button.innerHTML = '<span>🔴</span> Grabando...';
+                button.classList.add('recording');
+            } else if (mediaRecorder.state === 'recording') {
+                stopRecording();
+                button.innerHTML = '<span>🎤</span> Escuchar Ahora (5 seg)';
+                button.classList.remove('recording');
+            }
+        }
+
+        // Iniciar grabación
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Conectar stream a Wavesurfer para visualización
+                const source = audioContext.createMediaStreamSource(stream);
+                wavesurferRecord.microphone.onMicStream(source);
+                
+                mediaRecorder = new MediaRecorder(stream);
+                recordedChunks = [];
+                
+                mediaRecorder.ondataavailable = e => {
+                    if (e.data.size > 0) {
+                        recordedChunks.push(e.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(recordedChunks, { type: 'audio/wav' });
+                    
+                    // Convertir blob a ArrayBuffer
+                    const arrayBuffer = await audioBlob.arrayBuffer();
+                    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                    
+                    // Extraer 5 segundos del medio
+                    const fiveSecondsBuffer = extractFiveSeconds(audioBuffer);
+                    const monoBuffer = convertToMono(fiveSecondsBuffer);
+                    const pcmData = convertFloat32ToInt16(monoBuffer.getChannelData(0));
+                    
+                    // Identificar canción
+                    const result = await identifyMusic(pcmData.buffer);
+                    displayResult(result);
+                    
+                    // Detener todos los tracks
+                    stream.getTracks().forEach(track => track.stop());
+                };
+                
+                mediaRecorder.start();
+                
+                // Detener automáticamente después de 5 segundos
+                setTimeout(() => {
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
+                        stopRecording();
+                    }
+                }, 5000);
+            } catch (err) {
+                console.error('Error accediendo al micrófono:', err);
+                alert('No se pudo acceder al micrófono. Por favor revisa los permisos.');
+            }
+        }
+
+        // Detener grabación
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+        }
+
+        // Identificar música con ACRCloud
+        async function identifyMusic(audioData) {
+            showStatus('Identificando canción...', 'global');
+            
+            const host = ACR_HOST;
+            const accessKey = ACR_ACCESS_KEY;
+            const accessSecret = ACR_ACCESS_SECRET;
+            const dataType = 'audio';
+            const signatureVersion = '1';
+            const timestamp = new Date().getTime() / 1000;
+            
+            // Preparar datos para firma
+            const stringToSign = `POST\n/identify\n${accessKey}\n${dataType}\n${signatureVersion}\n${timestamp}`;
+            
+            // Generar firma HMAC-SHA1
+            const signature = CryptoJS.HmacSHA1(stringToSign, accessSecret).toString(CryptoJS.enc.Base64);
+            
+            // Crear FormData
+            const formData = new FormData();
+            formData.append('access_key', accessKey);
+            formData.append('data_type', dataType);
+            formData.append('signature', signature);
+            formData.append('signature_version', signatureVersion);
+            formData.append('timestamp', timestamp);
+            formData.append('sample', new Blob([audioData], { type: 'audio/l16;rate=8000' }));
+            
+            try {
+                const response = await fetch(`https://${host}/v1/identify`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                hideStatus();
+                return result;
+            } catch (error) {
+                console.error('Error identificando música:', error);
+                hideStatus();
+                throw error;
+            }
+        }
+
+        // Mostrar resultado
+        function displayResult(data) {
+            if (data.status.code === 0 && data.metadata && data.metadata.music) {
+                const music = data.metadata.music[0];
+                
+                document.getElementById('trackTitle').textContent = music.title || 'Desconocido';
+                document.getElementById('trackArtist').textContent = music.artists ? music.artists.map(a => a.name).join(', ') : 'Desconocido';
+                document.getElementById('trackYear').textContent = `Año: ${music.release_date ? music.release_date.split('-')[0] : 'Desconocido'}`;
+                
+                // Intentar obtener carátula
+                const albumArtUrl = music.album ? music.album.images && music.album.images[0] ? music.album.images[0].url : '' : '';
+                document.getElementById('albumArt').src = albumArtUrl || 'https://placehold.co/180x180/1a1a1a/cccccc?text=Sin+Portada';
+                
+                document.getElementById('resultCard').style.display = 'block';
+                
+                // Guardar título para YouTube
+                document.getElementById('youtubeButton').dataset.query = `${music.title} ${music.artists ? music.artists.map(a => a.name).join(' ') : ''}`;
+            } else {
+                alert('No se encontró ninguna canción coincidente.');
+            }
+        }
+
+        // Abrir búsqueda en YouTube
+        function openYouTube() {
+            const query = document.getElementById('youtubeButton').dataset.query;
+            if (query) {
+                window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`, '_blank');
+            }
+        }
+
+        // Mostrar mensaje de estado
+        function showStatus(message, target = 'global') {
+            if (target === 'upload') {
+                document.querySelector('#waveform-upload').innerHTML = `
+${message}</div>`; } else { const statusDiv = document.createElement('div'); statusDiv.className = 'status-message'; statusDiv.id = 'statusMessage'; statusDiv.innerHTML = `<span class="loading"></span>${message}`; document.querySelector('.container').insertBefore(statusDiv, document.querySelector('.main-content')); } } // Ocultar mensaje de estado function hideStatus() { const statusMsg = document.getElementById('statusMessage'); if (statusMsg) { statusMsg.remove(); } } </script> </body> </html>
